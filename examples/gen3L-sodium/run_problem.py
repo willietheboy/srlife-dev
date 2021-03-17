@@ -30,15 +30,14 @@ if __name__ == "__main__":
   # params["thermal"]["atol"] = 1.0e-6
   # params["thermal"]["miter"] = 20
 
-  params["structural"]["rtol"] = 1.0e-2
-  params["structural"]["atol"] = 1.0e-2
-  params["structural"]["miter"] = 50
+  # params["structural"]["rtol"] = 1.0e-2
+  # params["structural"]["atol"] = 1.0e-2
+  # params["structural"]["miter"] = 50
 
-  params["system"]["rtol"] = 1.0e-2
-  params["system"]["atol"] = 1.0e-2
+  # params["system"]["rtol"] = 1.0e-2
+  # params["system"]["atol"] = 1.0e-2
   # params["system"]["miter"] = 20
   # params["system"]["verbose"] = False
-
 
   # Define the thermal solver to use in solving the heat transfer problem
   thermal_solver = thermal.FiniteDifferenceImplicitThermalSolver(
@@ -59,7 +58,7 @@ if __name__ == "__main__":
       structural_solver, deformation_mat, damage_mat,
       system_solver, damage_model, pset = params)
 
-  # Solve just thermal to verify:
+  # Solve only thermal to verify for first commit:
   ret = solver.solve_heat_transfer()
 
   # # Actually solve for life
