@@ -7,7 +7,7 @@ from scipy.interpolate import NearestNDInterpolator
 from scipy.interpolate import LinearNDInterpolator
 
 import matplotlib.pyplot as plt
-## if using plot_pcolor function:
+## if using plot_pcolor function as-is:
 #params = {'text.latex.preamble': [r'\usepackage{newtxtext,newtxmath,siunitx}']}
 #plt.rcParams.update(params)
 
@@ -49,7 +49,7 @@ if __name__ == "__main__":
   wt_tube = 1.2 # mm
 
   ## Tube discretization:
-  nr = 3
+  nr = 3 # low-res for initial commit
   nt = 20
   nz = 28
 
@@ -59,26 +59,27 @@ if __name__ == "__main__":
   r_scr = width / 2. # radius of receiver
   c_scr = 2 * np.pi * r_scr # scr circumference on which tubes are placed
   n_panel = 12 # number of panels
-  n_tubes_panel = 2 # [1:56] number of tubes per panel
+  n_tubes_panel = 1 # number of tubes per panel (actual design has 56!)
   n_tubes = n_panel * n_tubes_panel # number of tubes in receiver
 
   ## Load receiver spring equinox noon conditions (Daggett, CA):
-  ## -- saved in SolarPILOT fluxmap 2D index-shape [nz, na] where:
-  ##    a is azimuth counter-clockwise from south and
-  ##    z height from bottom of panels/tubes
+  ## -> saved in a "DELSOL3-like" flattened cylindrical shape, with:
+  ##    -> [i, j] index-notation the same as numpy.meshgrid(..., indexing='ij')
+  ##    -> i is azimuth on receiver aperture counter-clockwise from south
+  ##    -> j is height up panel/tubes from bottom
   pa = np.genfromtxt('azimuth.csv', delimiter=',')
   pz = np.genfromtxt('height.csv', delimiter=',')*1e3 # convert m to mm
   ## Bulk sodium fluid temperature from lumped-parameter modelling:
-  fluid_temp = np.genfromtxt('fluidTemp.csv', delimiter=',')
-  ## Incident flux map from Solstice:
-  flux_map = np.genfromtxt('fluxmap.csv', delimiter=',')*1e-6 # W/m^2 to W/mm^2
-  ## Absorbed flux at tubes from lumped-parameter modelling:
-  abs_flux = np.genfromtxt('absFlux.csv', delimiter=',')*1e-6 # W/m^2 to W/mm^2
+  fluid_temp = np.genfromtxt('fluid_temp.csv', delimiter=',')
+  # ## Incident flux map from Solstice:
+  # inc_flux = np.genfromtxt('inc_flux.csv', delimiter=',')*1e-6 # W/m^2 to W/mm^2
+  ## Absorbed (net) flux at tube OD from lumped-parameter modelling:
+  net_flux = np.genfromtxt('net_flux.csv', delimiter=',')*1e-6 # W/m^2 to W/mm^2
   ## create copy of (surface) coordinates and move boundaries to limits of problem:
   pa_interp = pa.copy()
-  pa_interp[:,0] = 0; pa_interp[:,-1] = 2*np.pi
+  pa_interp[0,:] = 0; pa_interp[-1,:] = 2*np.pi
   pz_interp = pz.copy()
-  pz_interp[0,:] = 0; pz_interp[-1,:] = height
+  pz_interp[:,0] = 0; pz_interp[:,-1] = height
 
   ## Create mesh for interpolating flux and fluid temperatures at tube centroids:
   a_tmp = np.linspace(0, 2*np.pi, n_tubes+1)
@@ -86,17 +87,17 @@ if __name__ == "__main__":
   # z_tmp = np.linspace(0, height, nz+1)
   # z_tubes = (z_tmp[:-1] + z_tmp[1:]) / 2. # flux/temp values also at surfaces
   z_tubes = np.linspace(0,height,nz)
-  ma, mz = np.meshgrid(a_tubes, z_tubes)
+  ma, mz = np.meshgrid(a_tubes, z_tubes, indexing='ij')
 
   ## Sample bulk fluid temperatures at nearest panel/tube temperature:
   fluid_temp_interp = NearestNDInterpolator(
     list(zip(pa.ravel(), pz.ravel())),
     fluid_temp.ravel()
   )
-  # ## Plot the flux map as imported:
+  # ## Plot the flux map as imported from csv files:
   # plot_pcolor(pa, pz*1e-3, fluid_temp-273.15,
   #             r'\textsc{fluid temperature}, $T_\mathrm{f}$ (\si{\celsius})',
-  #             r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'fluidTemp'
+  #             r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'fluid_temp'
   # )
   # ## Check interpolation over tube discretisation:
   # plot_pcolor(ma, mz*1e-3, fluid_temp_interp(ma, mz)-273.15,
@@ -107,13 +108,13 @@ if __name__ == "__main__":
   ## interpolate tube flux linearly between (surface) values:
   flux_interp = LinearNDInterpolator(
     list(zip(pa_interp.ravel(), pz_interp.ravel())),
-    abs_flux.ravel()
+    net_flux.ravel()
   )
   # ## Plot the flux map as imported:
-  # plot_pcolor(pa, pz*1e-3, abs_flux,
+  # plot_pcolor(pa, pz*1e-3, net_flux,
   #             r'\textsc{absorbed flux density}, '+\
   #             r'$\vec{\phi}_\mathrm{q,a}$ (\si{\mega\watt\per\meter\squared})',
-  #             r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'absFlux'
+  #             r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'net_flux'
   # )
   # ## Check interpolation over tube discretisation:
   # plot_pcolor(ma, mz*1e-3, flux_interp(ma, mz),
