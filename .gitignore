@@ -7,7 +7,10 @@
 doc/sphinx/build
 examples/large-experiments
 examples/small-experiments
-examples/gen3L-sodium/model.hdf5
 build/
 srlife.egg-info/
 dist/
+
+examples/gen3L-sodium/model.hdf5
+examples/gen3L-sodium/*.pdf
+examples/gen3L-sodium/*.png

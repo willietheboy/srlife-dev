@@ -5,7 +5,11 @@ import numpy as np
 #from scipy.interpolate import griddata
 from scipy.interpolate import NearestNDInterpolator
 from scipy.interpolate import LinearNDInterpolator
+
 import matplotlib.pyplot as plt
+## if using plot_pcolor function:
+#params = {'text.latex.preamble': [r'\usepackage{newtxtext,newtxmath,siunitx}']}
+#plt.rcParams.update(params)
 
 import sys
 sys.path.append('../..')
@@ -59,8 +63,9 @@ if __name__ == "__main__":
   n_tubes = n_panel * n_tubes_panel # number of tubes in receiver
 
   ## Load receiver spring equinox noon conditions (Daggett, CA):
-  ## -- saved in SolarPILOT fluxmap 2D index-shape [nz, na] where
-  ##    a is azimuth (from south) and z height up panels/tubes
+  ## -- saved in SolarPILOT fluxmap 2D index-shape [nz, na] where:
+  ##    a is azimuth counter-clockwise from south and
+  ##    z height from bottom of panels/tubes
   pa = np.genfromtxt('azimuth.csv', delimiter=',')
   pz = np.genfromtxt('height.csv', delimiter=',')*1e3 # convert m to mm
   ## Bulk sodium fluid temperature from lumped-parameter modelling:
@@ -88,58 +93,50 @@ if __name__ == "__main__":
     list(zip(pa.ravel(), pz.ravel())),
     fluid_temp.ravel()
   )
-  plot_pcolor(pa, pz*1e-3, fluid_temp-273.15,
-              r'\textsc{fluid temperature}, $T_\mathrm{f}$ (\si{\celsius})',
-              r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'fluidTemp'
-  )
-  plot_pcolor(ma, mz*1e-3, fluid_temp_interp(ma, mz)-273.15,
-              r'\textsc{fluid temperature}, $T_\mathrm{f}$ (\si{\celsius})',
-              r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'fluidTempTubes'
-  )
+  # ## Plot the flux map as imported:
+  # plot_pcolor(pa, pz*1e-3, fluid_temp-273.15,
+  #             r'\textsc{fluid temperature}, $T_\mathrm{f}$ (\si{\celsius})',
+  #             r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'fluidTemp'
+  # )
+  # ## Check interpolation over tube discretisation:
+  # plot_pcolor(ma, mz*1e-3, fluid_temp_interp(ma, mz)-273.15,
+  #             r'\textsc{fluid temperature}, $T_\mathrm{f}$ (\si{\celsius})',
+  #             r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'fluidTempTubes'
+  # )
 
   ## interpolate tube flux linearly between (surface) values:
   flux_interp = LinearNDInterpolator(
     list(zip(pa_interp.ravel(), pz_interp.ravel())),
     abs_flux.ravel()
   )
-  plot_pcolor(pa, pz*1e-3, abs_flux,
-              r'\textsc{absorbed flux density}, '+\
-              r'$\vec{\phi}_\mathrm{q,a}$ (\si{\mega\watt\per\meter\squared})',
-              r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'absFlux'
-  )
-  plot_pcolor(ma, mz*1e-3, flux_interp(ma, mz),
-              r'\textsc{absorbed flux density}, '+\
-              r'$\vec{\phi}_\mathrm{q,a}$ (\si{\mega\watt\per\meter\squared})',
-              r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'absFluxTubes'
-  )
+  # ## Plot the flux map as imported:
+  # plot_pcolor(pa, pz*1e-3, abs_flux,
+  #             r'\textsc{absorbed flux density}, '+\
+  #             r'$\vec{\phi}_\mathrm{q,a}$ (\si{\mega\watt\per\meter\squared})',
+  #             r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'absFlux'
+  # )
+  # ## Check interpolation over tube discretisation:
+  # plot_pcolor(ma, mz*1e-3, flux_interp(ma, mz),
+  #             r'\textsc{absorbed flux density}, '+\
+  #             r'$\vec{\phi}_\mathrm{q,a}$ (\si{\mega\watt\per\meter\squared})',
+  #             r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'absFluxTubes'
+  # )
 
-  # Function used to define daily flux cycle (10 hours)
+  # Periodic function used to set daily flux cycle (10 hours)
   ramp = lambda t: np.interp(
     t % period,
     [0., 0.2, 1., 2., 3., 4., 5., 6., 7., 8., 9., 9.8, 10.],
     [0.00, 0.71, 0.87, 0.95, 0.97, 0.99, 1.00,
      0.99, 0.97, 0.95, 0.87, 0.71, 0.00]
   )
-  # Function used to define operation switch/onoff (10 hours)
+  # Periodic function used to set switch operation (10 hours)
   onoff = lambda t: np.interp(
     t % period,
     [0., 0.2, 9.8, 10.],
-    [0.00, 1, 1, 0.00]
+    [0., 1., 1., 0.]
   )
-  # Flux circumferential component
-  cos_theta = lambda theta: np.maximum(0,np.cos(theta))
-  ## Flux with time and location on receiver
-  flux_time = lambda t, theta, a, z: ramp(t) * cos_theta(theta) * flux_interp(a, z)
 
-  # ID fluid temperature histories for each tube
-  T_ref = 293.15
-  fluid_temp_time = lambda t, a, z: onoff(t) * fluid_temp_interp(a, z)
-
-  # ID pressure history
-  p_max = 1.0 # MPa
-  pressure = lambda t: p_max * onoff(t)
-
-  # Time increments throughout the 10 hour cycle
+  ## Time steps considered (for a single 10 hour cycle)
   #times = np.linspace(0,period,21)
   times = np.array(
     [0., 0.1, 0.2, 0.6,
@@ -147,13 +144,25 @@ if __name__ == "__main__":
      5., 5.5, 6., 6.5, 7., 7.5, 8., 8.5, 9.,
      9.4, 9.8, 9.9, 10.]
   )
+  ## Tube circumferential flux component (cosine distribution):
+  cos_theta = lambda theta: np.maximum(0,np.cos(theta))
 
-  # Various meshes needed to define the boundary conditions
-  # 1) A mesh over the times and height (for the fluid temperatures)
+  ## Flux with time and location on receiver
+  flux_time = lambda t, theta, a, z: ramp(t) * cos_theta(theta) * flux_interp(a, z)
+
+  ## ID fluid temperature histories for each tube
+  T_ref = 293.15
+  fluid_temp_time = lambda t, a, z: onoff(t) * fluid_temp_interp(a, z)
+
+  ## ID pressure history
+  p_max = 1.0 # MPa
+  pressure = lambda t: p_max * onoff(t)
+
+  ## A mesh over the times and height (for the fluid temperatures)
   time_h, z_h = np.meshgrid(
     times, z_tubes, indexing='ij'
   )
-  # 2) A surface mesh over the outer surface (for the flux)
+  ## A surface mesh over the outer surface (for the flux)
   time_s, theta_s, z_s = np.meshgrid(
     times, np.linspace(0,2*np.pi,nt+1)[:nt],
     np.linspace(0,height,nz), indexing = 'ij'
