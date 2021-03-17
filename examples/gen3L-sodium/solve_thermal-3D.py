@@ -13,8 +13,12 @@ if __name__ == "__main__":
 
   # Choose the material models
   fluid_mat = library.load_fluid("sodium", "base")
-  thermal_mat, deformation_mat, damage_mat = library.load_material("740H", "base",
-      "base", "base")
+  thermal_mat, deformation_mat, damage_mat = library.load_material(
+    "740H",
+    "base", # thermal
+    "elastic_model", # deformation
+    "base" # damage
+  )
 
   # # Reduce problem to 2D-GPS:
   # for panel in model.panels.values():
@@ -43,7 +47,7 @@ if __name__ == "__main__":
   thermal_solver = thermal.FiniteDifferenceImplicitThermalSolver(
       params["thermal"])
 
-  # ## Test only (single tube) thermal solutions for now:
+  # ## Test only (single tube) thermal solutions:
   # thermal_solver.solver.solve(tube, thermal_mat, fluid_mat)
 
   # Define the structural solver to use in solving the individual tube problems
@@ -58,10 +62,10 @@ if __name__ == "__main__":
       structural_solver, deformation_mat, damage_mat,
       system_solver, damage_model, pset = params)
 
-  # Solve only thermal to verify for first commit:
+  ## Solve only thermal to verify for first commit:
   ret = solver.solve_heat_transfer()
 
-  # # Actually solve for life
+  # ## Actually solve for life
   # life = solver.solve_life()
   # print("Best estimate life: %f daily cycles" % life)
 
