@@ -49,7 +49,7 @@ if __name__ == "__main__":
   wt_tube = 1.2 # mm
 
   ## Tube discretization:
-  nr = 3 # low-res for initial commit
+  nr = 12 # low-res for initial commit
   nt = 20
   nz = 28
 
@@ -138,13 +138,14 @@ if __name__ == "__main__":
   )
 
   ## Time steps considered (for a single 10 hour cycle)
-  #times = np.linspace(0,period,21)
+  #times = np.linspace(0,period,1001)
   times = np.array(
     [0., 0.1, 0.2, 0.6,
      1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5,
      5., 5.5, 6., 6.5, 7., 7.5, 8., 8.5, 9.,
      9.4, 9.8, 9.9, 10.]
   )
+
   ## Tube circumferential flux component (cosine distribution):
   cos_theta = lambda theta: np.maximum(0,np.cos(theta))
 
