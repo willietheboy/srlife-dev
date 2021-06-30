@@ -7,6 +7,22 @@ sys.path.append('../..')
 
 from srlife import receiver, solverparams, library, thermal, structural, system, damage, managers
 
+def vmStress(tube):
+  """
+  Calculate von Mises effective stress from tube quadrature results
+  """
+  vm = np.sqrt((
+    (tube.quadrature_results['stress_xx'] -
+     tube.quadrature_results['stress_yy'])**2.0 +
+    (tube.quadrature_results['stress_yy'] -
+     tube.quadrature_results['stress_zz'])**2.0 +
+    (tube.quadrature_results['stress_zz'] -
+     tube.quadrature_results['stress_xx'])**2.0 +
+    3.0 * (tube.quadrature_results['stress_xy']**2.0 +
+           tube.quadrature_results['stress_yz']**2.0 +
+           tube.quadrature_results['stress_xz']**2.0))/2.0)
+  return vm
+
 if __name__ == "__main__":
   # Load the receiver we previously saved
   model = receiver.Receiver.load("model.hdf5")
@@ -16,7 +32,7 @@ if __name__ == "__main__":
   thermal_mat, deformation_mat, damage_mat = library.load_material(
     "740H",
     "base", # thermal
-    "elastic_model", # deformation
+    "elastic_model", # deformation (elastic_model|elastic_creep|base)
     "base" # damage
   )
 
@@ -27,7 +43,7 @@ if __name__ == "__main__":
 
   # Setup some solver parameters
   params = solverparams.ParameterSet()
-  params["nthreads"] = 2
+  params["nthreads"] = 1
   params["progress_bars"] = True
 
   # params["thermal"]["rtol"] = 1.0e-6
@@ -36,7 +52,7 @@ if __name__ == "__main__":
 
   # params["structural"]["rtol"] = 1.0e-2
   # params["structural"]["atol"] = 1.0e-2
-  # params["structural"]["miter"] = 50
+  # params["structural"]["miter"] = 200
 
   # params["system"]["rtol"] = 1.0e-2
   # params["system"]["atol"] = 1.0e-2
@@ -73,4 +89,5 @@ if __name__ == "__main__":
   for pi, panel in model.panels.items():
     for ti, tube in panel.tubes.items():
       #tube.write_vtk("tube2D-%s-%s" % (pi, ti))
+      tube.add_quadrature_results('vonmises', vmStress(tube))
       tube.write_vtk("2D-%s-%s" % (pi, ti))
