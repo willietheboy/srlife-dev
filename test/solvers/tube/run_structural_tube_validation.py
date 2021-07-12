@@ -14,9 +14,9 @@ sys.path.append('../../..')
 from srlife import receiver, structural, spring
 
 class TestCase:
-  def __init__(self, name, T, analytic, z_force, z_strain = 0,
-               ri = 0.9, ro = 1.0, h = 10.0, alpha = 1.0e-5,
-               E = 100000.0, nu = 0.3, p = 1.0, dT = 0.0,
+  def __init__(self, name, T, analytic, z_force, z_strain = 0.0,
+               ri = 8.0, ro = 10.0, h = 10.0, alpha = 1.0e-5,
+               E = 100000.0, nu = 0.3, p = 100.0, dT = 0.0,
                spring = False):
     self.name = name
     self.Tfn = T
@@ -35,7 +35,7 @@ class TestCase:
     self.dT = dT
 
     self.sprung = spring
-    self.dz = z_strain * h
+    self.ez = z_strain
 
   def T(self, r):
     return self.Tfn(r, self.ri, self.ro, self.dT)
@@ -46,8 +46,8 @@ class TestCase:
   def axial_force(self):
     return self.fzfn(self.p, self.ri, self.ro)
 
-  def axial_disp(self):
-    return self.dzfn(self.h)
+  def axial_disp(self, z):
+    return z * self.ez
 
   def make_mat(self):
     emodel = elasticity.IsotropicLinearElasticModel(self.E, "youngs",
@@ -67,7 +67,12 @@ class TestCase:
 
     R, _, _ = tube.mesh
     Ts = np.zeros((2,) + R.shape[:dim])
-    Ts[1] = self.T(R[:,0,0])
+    if dim == 1:
+      Ts[1] = self.T(R[:,0,0])
+    elif dim == 2:
+      Ts[1] = self.T(R[:,:,0])
+    else:
+      Ts[1] = self.T(R[:,:,:])
 
     tube.add_results("temperature", Ts)
 
@@ -104,7 +109,8 @@ class TestCase:
 
     if self.sprung:
       """
-      Use a single spring network with imposed axial (pressure) force
+      Use a single spring network with imposed axial force
+      (e.g. out-of-plane pressure or dead-weight)
       """
       network = self.make_tube_spring(tube, mat, solver, self.axial_force())
       network.solve(1)
@@ -114,7 +120,10 @@ class TestCase:
       state_np1 = spring.state_np1
       solver.dump_state(spring.tube, 1, state_np1)
     else:
-      state_np1 = solver.solve(tube, 1, state_n, self.dz)
+      if dim == 1 or dim == 2:
+        state_np1 = solver.solve(tube, 1, state_n, self.axial_disp(1))
+      else:
+        state_np1 = solver.solve(tube, 1, state_n, self.axial_disp(self.h))
       solver.dump_state(tube, 1, state_np1)
 
     return state_np1, tube
@@ -147,6 +156,21 @@ class TestCase:
     plt.title(self.name + ": " + "%iD" % tube.ndim)
     plt.show()
 
+  def plot_comparison_pdf(self, tube):
+    u, r = self.get_comparison(tube)
+
+    fig1 = plt.figure(figsize=(3.5, 3.5))
+    ax1 = fig1.add_subplot(111)
+    ax1.plot(r, u, 'k-')
+    ax1.plot(r, self.exact(r), 'k--')
+    ax1.set_xlabel(r'\textsc{radial position}, $r$ (mm)')
+    ax1.set_ylabel(r'\textsc{radial displacement}, $u$ (mm)')
+    ax1.set_title(self.name + ": " + "%iD" % tube.ndim)
+    fig1.tight_layout()
+    fig1.savefig('pdf/'+self.afn.__name__ + "_%iD" % tube.ndim + '.pdf')
+    fig1.savefig('pdf/'+self.afn.__name__ + "_%iD" % tube.ndim + '.png', dpi=150)
+    plt.close('all')
+
   def evaluate_comparison(self, tube):
     u, r = self.get_comparison(tube)
 
@@ -155,14 +179,27 @@ class TestCase:
 
     return np.max(err), np.max(rel)
 
+"""
+Exact analytical functions
+"""
+
 def pressure_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
   """
   Assumption of plane strain (axial strain = 0)
   """
   A = ri**2 * ro**2 * -p / (ro**2 - ri**2)
   C = p * ri**2 / (ro**2 - ri**2)
-  dr = (-A*nu - A + C*r**2*(-2*nu**2 - nu + 1))/(E*r)
-  return dr
+  u = (-A*nu - A + C*r**2*(-2*nu**2 - nu + 1))/(E*r)
+  return u
+
+def pressure_out_of_plane_R_disp(r, p, ri, ro, E, nu, dT, alpha):
+  """
+  Assumption of cylinder closed at both ends
+  """
+  A = ri**2 * ro**2 * -p / (ro**2 - ri**2)
+  C = p * ri**2 / (ro**2 - ri**2)
+  u = (-A*nu - A + C*r**2*(1 - 2*nu))/(E*r)
+  return u
 
 def thermal_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
   """
@@ -173,10 +210,28 @@ def thermal_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
   C_2 = alpha*dT*ri**2*(nu + 1)*\
     (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
   C_3 = 0
-  dr = C_1*r + C_2/r + C_3*nu*r/E + alpha*(nu + 1)*\
+  u = C_1*r + C_2/r + C_3*nu*r/E + alpha*(nu + 1)*\
     (-dT*r**3/(3*ri - 3*ro) + dT*r**2*ri/(2*ri - 2*ro) + \
      dT*ri**3/(3*ri - 3*ro) - dT*ri**3/(2*ri - 2*ro))/(r*(1 - nu))
-  return dr
+  return u
+
+def thermal_gen_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
+  """
+  Constants of integration (stress) assume a linear temperature gradient
+  """
+  C_1 = -alpha*dT*(nu + 1)*(2*nu - 1)*\
+    (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
+  C_2 = alpha*dT*ri**2*(nu + 1)*\
+    (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
+  C_3 = -E*alpha*dT*(ri + 2*ro)/(3*ri + 3*ro)
+  u = C_1*r + C_2/r + C_3*nu*r/E + alpha*(nu + 1)*\
+    (-dT*r**3/(3*ri - 3*ro) + dT*r**2*ri/(2*ri - 2*ro) + \
+     dT*ri**3/(3*ri - 3*ro) - dT*ri**3/(2*ri - 2*ro))/(r*(1 - nu))
+  return u
+
+"""
+Axial (e.g. out of plane pressure) boundary conditions
+"""
 
 def no_out_of_plane_Z_force(p, ri, ro):
   """
@@ -190,15 +245,6 @@ def pressure_out_of_plane_Z_force(p, ri, ro):
   """
   C = p * ri**2 / (ro**2 - ri**2)
   return -C * np.pi * (ro**2 - ri**2)
-
-def pressure_out_of_plane_R_disp(r, p, ri, ro, E, nu, dT, alpha):
-  """
-  Assumption of tube closed at both ends
-  """
-  A = ri**2 * ro**2 * -p / (ro**2 - ri**2)
-  C = p * ri**2 / (ro**2 - ri**2)
-  dr = (-A*nu - A + C*r**2*(1 - 2*nu))/(E*r)
-  return dr
 
 if __name__ == "__main__":
 
@@ -216,27 +262,34 @@ if __name__ == "__main__":
              pressure_out_of_plane_R_disp,
              pressure_out_of_plane_Z_force,
              p = 100, ri = 8, ro = 10.0,
-             spring = True)# ,
-    # TestCase("Thermal, generalised plane strain",
-    #          lambda r, ri, ro, dT: 100 * (r - ri) / (ro - ri),
-    #          thermal_plane_strain_R_disp,
-    #          no_out_of_plane_Z_force,
-    #          p = 0, ri = 8, ro = 10.0,
-    #          spring = True)
+             spring = True),
+    TestCase("Thermal, plane strain",
+             lambda r, ri, ro, dT: dT * (r - ri) / (ro - ri),
+             thermal_plane_strain_R_disp,
+             no_out_of_plane_Z_force,
+             p = 1e-9, ri = 8, ro = 10.0, dT = 100,
+             spring = False),
+    TestCase("Thermal, gen. plane strain",
+             lambda r, ri, ro, dT: dT * (r - ri) / (ro - ri),
+             thermal_gen_plane_strain_R_disp,
+             no_out_of_plane_Z_force,
+             p = 1e-9, ri = 8, ro = 10.0, dT = 100,
+             spring = True)
   ]
 
   print("Analytical comparison")
   print("=====================")
   print("")
-  # for d in range(1,4):
-  for d in range(1,2):
+  for d in range(1,4):
     for case in cases:
       state, tube = case.run_comparison(d, solver)
       a, r = case.evaluate_comparison(tube)
       print(case.name + ": " "%iD" % d)
-      print("Axial force: %e" % state.force)
+      print("Axial (resultant) force: %e (MN)" % state.force)
       print("Max absolute error: %e" % a)
       print("Max relative error: %e" % r)
       print("")
-
+      ## graphical:
       case.plot_comparison(tube)
+      ## print to PDF:
+      # case.plot_comparison_pdf(tube)

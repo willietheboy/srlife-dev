@@ -15,3 +15,5 @@ dist/
 examples/gen3L-sodium/model.hdf5
 examples/gen3L-sodium/*.pdf
 examples/gen3L-sodium/*.png
+
+test/solvers/tube/pdf/*
