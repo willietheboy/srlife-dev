@@ -14,6 +14,9 @@ sys.path.append('../../..')
 from srlife import receiver, structural, spring
 
 class TestCase:
+  """
+  Units are MPa, mm, MN
+  """
   def __init__(self, name, T, analytic, z_force, z_strain = 0.0,
                ri = 8.0, ro = 10.0, h = 10.0, alpha = 1.0e-5,
                E = 100000.0, nu = 0.3, p = 100.0, dT = 0.0,
@@ -54,7 +57,7 @@ class TestCase:
         self.nu, "poissons")
     return models.SmallStrainElasticity(emodel, alpha = self.alpha)
 
-  def make_tube(self, dim, nr = 15, nt = 30, nz = 5):
+  def make_tube(self, dim, nr = 10, nt = 20, nz = 10):
     tube = receiver.Tube(self.ro, self.ro - self.ri, self.h, nr, nt, nz)
 
     if dim == 1:
@@ -223,14 +226,49 @@ def thermal_gen_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
     (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
   C_2 = alpha*dT*ri**2*(nu + 1)*\
     (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
+  ## the constant axial stress required to annual (thermal) axial force:
   C_3 = -E*alpha*dT*(ri + 2*ro)/(3*ri + 3*ro)
   u = C_1*r + C_2/r + C_3*nu*r/E + alpha*(nu + 1)*\
     (-dT*r**3/(3*ri - 3*ro) + dT*r**2*ri/(2*ri - 2*ro) + \
      dT*ri**3/(3*ri - 3*ro) - dT*ri**3/(2*ri - 2*ro))/(r*(1 - nu))
   return u
 
+def total_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
+  """
+  Constants of integration (stress) assume a linear temperature gradient
+  """
+  A = ri**2 * ro**2 * -p / (ro**2 - ri**2)
+  C = p * ri**2 / (ro**2 - ri**2)
+  C_1 = -alpha*dT*(nu + 1)*(2*nu - 1)*\
+    (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
+  C_2 = alpha*dT*ri**2*(nu + 1)*\
+    (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
+  C_3 = 0
+  u = (-A*nu - A + C*r**2*(-2*nu**2 - nu + 1))/(E*r) + \
+    C_1*r + C_2/r + C_3*nu*r/E + alpha*(nu + 1)*\
+    (-dT*r**3/(3*ri - 3*ro) + dT*r**2*ri/(2*ri - 2*ro) + \
+     dT*ri**3/(3*ri - 3*ro) - dT*ri**3/(2*ri - 2*ro))/(r*(1 - nu))
+  return u
+
+def total_gen_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
+  """
+  Constants of integration (stress) assume a linear temperature gradient
+  """
+  A = ri**2 * ro**2 * -p / (ro**2 - ri**2)
+  C = p * ri**2 / (ro**2 - ri**2)
+  C_1 = -alpha*dT*(nu + 1)*(2*nu - 1)*\
+    (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
+  C_2 = alpha*dT*ri**2*(nu + 1)*\
+    (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
+  C_3 = -E*alpha*dT*(ri + 2*ro)/(3*ri + 3*ro)
+  u = (-A*nu - A + C*r**2*(1 - 2*nu))/(E*r) + \
+    C_1*r + C_2/r + C_3*nu*r/E + alpha*(nu + 1)*\
+    (-dT*r**3/(3*ri - 3*ro) + dT*r**2*ri/(2*ri - 2*ro) + \
+     dT*ri**3/(3*ri - 3*ro) - dT*ri**3/(2*ri - 2*ro))/(r*(1 - nu))
+  return u
+
 """
-Axial (e.g. out of plane pressure) boundary conditions
+Axial (e.g. out of plane pressure, dead-weight) boundary conditions
 """
 
 def no_out_of_plane_Z_force(p, ri, ro):
@@ -274,15 +312,31 @@ if __name__ == "__main__":
              thermal_gen_plane_strain_R_disp,
              no_out_of_plane_Z_force,
              p = 1e-9, ri = 8, ro = 10.0, dT = 100,
+             spring = True),
+    TestCase("Pressure + Thermal, plane strain",
+             lambda r, ri, ro, dT: dT * (r - ri) / (ro - ri),
+             total_plane_strain_R_disp,
+             no_out_of_plane_Z_force,
+             p = 100, ri = 8, ro = 10.0, dT = 100,
+             spring = False),
+    TestCase("Pressure + Thermal, gen. plane strain",
+             lambda r, ri, ro, dT: dT * (r - ri) / (ro - ri),
+             total_gen_plane_strain_R_disp,
+             pressure_out_of_plane_Z_force,
+             p = 100, ri = 8, ro = 10.0, dT = 100,
              spring = True)
   ]
 
   print("Analytical comparison")
   print("=====================")
   print("")
+  ## tube dimensions:
+  nr = 8
+  nt = 20
+  nz = 10
   for d in range(1,4):
     for case in cases:
-      state, tube = case.run_comparison(d, solver)
+      state, tube = case.run_comparison(d, solver, nr, nt, nz)
       a, r = case.evaluate_comparison(tube)
       print(case.name + ": " "%iD" % d)
       print("Axial (resultant) force: %e (MN)" % state.force)
