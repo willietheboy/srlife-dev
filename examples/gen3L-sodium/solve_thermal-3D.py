@@ -1,13 +1,51 @@
 #!/usr/bin/env python3
 
 import numpy as np
+from math import ceil, floor
 
 import sys
 sys.path.append('../..')
 
 from srlife import receiver, solverparams, library, thermal, structural, system, damage, managers
 
+def headerprint(string, mychar='='):
+  """ Prints a centered string to divide output sections. """
+  mywidth = 80
+  numspaces = mywidth - len(string)
+  before = int(ceil(float(mywidth-len(string))/2))
+  after  = int(floor(float(mywidth-len(string))/2))
+  print("\n"+before*mychar+string+after*mychar+"\n")
+
+def valprint(string, value, unit='-'):
+  """ Ensure uniform formatting of scalar value outputs. """
+  print("{0:>30}: {1: .4f} {2}".format(string, value, unit))
+
+def valeprint(string, value, unit='-'):
+  """ Ensure uniform formatting of scalar value outputs. """
+  print("{0:>30}: {1: .4e} {2}".format(string, value, unit))
+
+def vmStress(tube):
+  """
+  Calculate von Mises effective stress from tube quadrature results
+  """
+  vm = np.sqrt((
+    (tube.quadrature_results['stress_xx'] -
+     tube.quadrature_results['stress_yy'])**2.0 +
+    (tube.quadrature_results['stress_yy'] -
+     tube.quadrature_results['stress_zz'])**2.0 +
+    (tube.quadrature_results['stress_zz'] -
+     tube.quadrature_results['stress_xx'])**2.0 +
+    3.0 * (tube.quadrature_results['stress_xy']**2.0 +
+           tube.quadrature_results['stress_yz']**2.0 +
+           tube.quadrature_results['stress_xz']**2.0))/2.0)
+  return vm
+
 if __name__ == "__main__":
+
+  """
+  Units: stress in MPa, strain in mm/mm, time in hours, temperature in K
+  """
+
   # Load the receiver we previously saved
   model = receiver.Receiver.load("model.hdf5")
 
@@ -27,7 +65,7 @@ if __name__ == "__main__":
 
   # Setup some solver parameters
   params = solverparams.ParameterSet()
-  params["nthreads"] = 2
+  params["nthreads"] = 3
   params["progress_bars"] = True
 
   # params["thermal"]["rtol"] = 1.0e-6
@@ -87,4 +125,4 @@ if __name__ == "__main__":
         tube.outer_bc.flux(times[loc_max[0]], 0, z_max)[0],
         'MW/m^2'
       )
-      tube.make_2D(z_max) # full 3D temperature results are maintained
+  print(z_slice)

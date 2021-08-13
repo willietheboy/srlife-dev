@@ -38,20 +38,24 @@ def plot_pcolor(x, y, values, quantity, xlabel, ylabel, fname):
 
 if __name__ == "__main__":
 
+  """
+  Units: stress in MPa, strain in mm/mm, time in hours, temperature in K
+  """
+
   ## Setup the base receiver model:
-  period = 10.0 # Loading cycle period, hours
-  days = 1 # Number of cycles represented in the problem
+  period = 10 # Loading cycle period, hours
+  days = 365 # Number of cycles represented in the problem
   panel_stiffness = "disconnect" # Panels are disconnected from one another
   model = receiver.Receiver(period, days, panel_stiffness)
 
   ## Tube geometry:
-  ro_tube = 60.3/2. # mm
+  ro_tube = 60/2. # mm
   wt_tube = 1.2 # mm
 
   ## Tube discretization:
-  nr = 12 # low-res for initial commit
-  nt = 20
-  nz = 28
+  nr = 9
+  nt = 31
+  nz = 146
 
   ## Solar Central Receiver (scr) geometry:
   height = 14500.0 # mm
@@ -158,7 +162,7 @@ if __name__ == "__main__":
     # shutdown
     times = np.append(
       times,
-      np.linspace(9.8, 10, 6)[1:]
+      period*i + np.linspace(9.8, 10, 6)[1:]
     )
 
   ## Tube circumferential flux component (cosine distribution):

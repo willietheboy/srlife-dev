@@ -1,5 +1,5 @@
 """
-  Module with methods for calculating creep-fatigue damage given 
+  Module with methods for calculating creep-fatigue damage given
   completely-solved tube results and damage material properties
 """
 
@@ -24,13 +24,13 @@ class DamageCalculator:
         tube:       fully-populated tube object
         material:   damage material
         receiver:   receiver object (for metadata)
-    """ 
+    """
     raise NotImplementedError("Superclass not implemented")
 
-  def determine_life(self, receiver, material, nthreads = 1, 
+  def determine_life(self, receiver, material, nthreads = 1,
       decorator = lambda x, n: x):
     """
-      Determine the life of the receiver by calculating individual 
+      Determine the life of the receiver by calculating individual
       material point damage and finding the minimum of all points.
 
       Parameters:
@@ -71,9 +71,9 @@ class TimeFractionInteractionDamage(DamageCalculator):
     Df = self.fatigue_damage(tube, material, receiver)
 
     # This is going to be expensive, but I don't see much way around it
-    return min(self.calculate_max_cycles(c, f, material) for c,f in 
+    return min(self.calculate_max_cycles(c, f, material) for c,f in
         zip(Dc.flatten(), Df.flatten()))
-  
+
   def calculate_max_cycles(self, Dc, Df, material, rep_min = 1, rep_max = 1e6):
     """
       Actually calculate the maximum number of repetitions for a single point
@@ -105,11 +105,11 @@ class TimeFractionInteractionDamage(DamageCalculator):
     """
     # For now just use the von Mises effective stress
     vm = np.sqrt((
-        (tube.quadrature_results['stress_xx'] - tube.quadrature_results['stress_yy'])**2.0 + 
-        (tube.quadrature_results['stress_yy'] - tube.quadrature_results['stress_zz'])**2.0 + 
-        (tube.quadrature_results['stress_zz'] - tube.quadrature_results['stress_xx'])**2.0 + 
-        3.0 * (tube.quadrature_results['stress_xy']**2.0 + 
-          tube.quadrature_results['stress_yz']**2.0 + 
+        (tube.quadrature_results['stress_xx'] - tube.quadrature_results['stress_yy'])**2.0 +
+        (tube.quadrature_results['stress_yy'] - tube.quadrature_results['stress_zz'])**2.0 +
+        (tube.quadrature_results['stress_zz'] - tube.quadrature_results['stress_xx'])**2.0 +
+        3.0 * (tube.quadrature_results['stress_xy']**2.0 +
+          tube.quadrature_results['stress_yz']**2.0 +
           tube.quadrature_results['stress_xz']**2.0))/2.0)
 
     tR = material.time_to_rupture("averageRupture", tube.quadrature_results['temperature'], vm)
@@ -138,13 +138,13 @@ class TimeFractionInteractionDamage(DamageCalculator):
     strain_names = ['mechanical_strain_xx', 'mechanical_strain_yy', 'mechanical_strain_zz',
         'mechanical_strain_yz', 'mechanical_strain_xz', 'mechanical_strain_xy']
     strain_factors = [1.0,1.0,1.0,np.sqrt(2), np.sqrt(2), np.sqrt(2)]
-    
+
     return sum(self.cycle_fatigue(np.array([ef*tube.quadrature_results[en][
-      inds[i]:inds[i+1]] for 
-      en,ef in zip(strain_names, strain_factors)]), 
+      inds[i]:inds[i+1]] for
+      en,ef in zip(strain_names, strain_factors)]),
       tube.quadrature_results['temperature'][inds[i]:inds[i+1]], material)
       for i in range(receiver.days))
-  
+
   def cycle_fatigue(self, strains, temperatures, material, nu = 0.5):
     """
       Calculate fatigue damage for a single cycle
@@ -169,10 +169,86 @@ class TimeFractionInteractionDamage(DamageCalculator):
             + 3.0/2.0 * (de[3]**2.0 + de[4]**2.0 + de[5]**6.0)
             )
         pt_eranges = np.maximum(pt_eranges, eq)
-    
+
     dmg = np.zeros(pt_eranges.shape)
     # pylint: disable=not-an-iterable
     for ind in np.ndindex(*dmg.shape):
       dmg[ind] = 1.0 / material.cycles_to_fail("nominalFatigue", pt_temps[ind], pt_eranges[ind])
 
     return dmg
+
+  """
+  Modification of "single_cycles" function limited to a subset (cycle/day)
+  """
+
+  def single_cycle(self, tube, material, receiver, day = 1):
+    """
+      Calculate the single-tube number of repetitions to failure
+
+      Parameters:
+        tube        single tube with full results
+        material    damage material model
+        receiver    receiver, for metadata
+        day         day/cycle to consider
+    """
+    # Identify day/cycle boundaries
+    tm = np.mod(tube.times, receiver.period)
+    bnds = list(np.where(tm == 0)[0])
+    if len(bnds) != (receiver.days + 1):
+      raise ValueError("Tube times not compatible with the receiver"
+                       " number of days and cycle period!")
+    elif day > receiver.days:
+      raise ValueError("Day selected for lifetime evaluation is greater"
+                       " than model (*.hdf5?) days/periods (receiver.days)!")
+
+    subset = range(bnds[day-1], bnds[day]+1)
+
+    # Material point creep damage
+    Dc = self.creep_damage_subset(tube, material, subset)
+
+    # Material point fatigue damage
+    Df = self.fatigue_damage_subset(tube, material, receiver, subset)
+
+    # This is going to be expensive, but I don't see much way around it
+    return min(self.calculate_max_cycles(c, f, material) for c,f in
+        zip(Dc.flatten(), Df.flatten()))
+
+  def creep_damage_subset(self, tube, material, subset):
+    """
+      Calculate creep damage at each material point
+
+      Parameters:
+        tube        single tube with full results
+        material    damage material model
+    """
+    ## Assume that "vonmises" field already exists:
+    tR = material.time_to_rupture(
+      "averageRupture",
+      tube.quadrature_results['temperature'][subset],
+      tube.quadrature_results['vonmises'][subset]
+    )
+    dts = np.diff(tube.times[subset])
+    dmg = np.sum(dts[:,np.newaxis,np.newaxis]/tR[1:], axis = 0)
+
+    return dmg
+
+  def fatigue_damage_subset(self, tube, material, receiver, subset):
+    """
+      Calculate fatigue damage at each material point
+
+      Parameters:
+        tube        single tube with full results
+        material    damage material model
+        receiver    receiver, for metadata
+    """
+    strain_names = [
+      'mechanical_strain_xx', 'mechanical_strain_yy', 'mechanical_strain_zz',
+      'mechanical_strain_yz', 'mechanical_strain_xz', 'mechanical_strain_xy'
+    ]
+    strain_factors = [1.0,1.0,1.0,np.sqrt(2), np.sqrt(2), np.sqrt(2)]
+
+    return self.cycle_fatigue(
+      np.array([ef*tube.quadrature_results[en][subset]
+                for en,ef in zip(strain_names, strain_factors)]),
+      tube.quadrature_results['temperature'][subset], material
+    )

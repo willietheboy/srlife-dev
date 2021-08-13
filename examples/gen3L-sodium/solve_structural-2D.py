@@ -41,8 +41,14 @@ def vmStress(tube):
   return vm
 
 if __name__ == "__main__":
+
+  """
+  Units: stress in MPa, strain in mm/mm, time in hours, temperature in K
+  """
+
   # Load the receiver we previously saved
   model = receiver.Receiver.load("model.hdf5")
+  day = 365
 
   # Choose the material models
   fluid_mat = library.load_fluid("sodium", "base")
@@ -55,7 +61,7 @@ if __name__ == "__main__":
 
   # Setup some solver parameters
   params = solverparams.ParameterSet()
-  params["nthreads"] = 3
+  params["nthreads"] = 4
   params["progress_bars"] = True
 
   # params["thermal"]["rtol"] = 1.0e-6
@@ -67,7 +73,7 @@ if __name__ == "__main__":
   # params["structural"]["miter"] = 20
   # params["structural"]["force_divide"] = True
   # params["structural"]["max_divide"] = 4
-  params["structural"]["verbose"] = False
+  # params["structural"]["verbose"] = False
 
   # params["system"]["rtol"] = 1.0e-2
   # params["system"]["atol"] = 1.0e-2
@@ -99,19 +105,20 @@ if __name__ == "__main__":
 
   ## Use axial points of maximum temperature from 3D thermal:
   z_slice = {
-    'tube0': 6981.481481481482,
-    'tube1': 6981.481481481482,
-    'tube10': 6444.444444444445,
-    'tube11': 8055.555555555556,
-    'tube2': 9129.62962962963,
-    'tube3': 4296.2962962962965,
-    'tube4': 10740.74074074074,
-    'tube5': 4296.2962962962965,
-    'tube6': 3759.2592592592596,
-    'tube7': 10203.703703703704,
-    'tube8': 4833.333333333334,
-    'tube9': 9129.62962962963
+    'tube0': 7200.0,
+    'tube1': 6700.0,
+    'tube2': 8900.0,
+    'tube3': 4600.0,
+    'tube4': 10900.0,
+    'tube5': 4400.0,
+    'tube6': 3900.0,
+    'tube7': 10400.0,
+    'tube8': 4600.0,
+    'tube9': 9400.0,
+    'tube10': 6700.0,
+    'tube11': 8200.0
   }
+
   ## Reduce problem to 2D-GPS:
   for pi, panel in model.panels.items():
     for ti, tube in panel.tubes.items():
@@ -122,10 +129,10 @@ if __name__ == "__main__":
   solver.solve_structural()
 
   # Save the tube data for structural visualization and report tube lifetime
-  headerprint(' LIFETIME ', '_')
+  headerprint(' LIFETIME with cycle: {}'.format(day), '_')
   for pi, panel in model.panels.items():
     for ti, tube in panel.tubes.items():
-      life = damage_model.single_cycles(tube, damage_mat, model)
-      valprint(ti, life, 'cycles')
       tube.add_quadrature_results('vonmises', vmStress(tube))
       tube.write_vtk("2D-%s-%s" % (pi, ti))
+      life = damage_model.single_cycle(tube, damage_mat, model, day = day)
+      valprint(ti, life, 'cycles')
