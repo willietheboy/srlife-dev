@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
   # Setup some solver parameters
   params = solverparams.ParameterSet()
-  params["nthreads"] = 4
+  params["nthreads"] = 3
   params["progress_bars"] = True
 
   # params["thermal"]["rtol"] = 1.0e-6
@@ -67,7 +67,7 @@ if __name__ == "__main__":
   # params["structural"]["miter"] = 20
   # params["structural"]["force_divide"] = True
   # params["structural"]["max_divide"] = 4
-  # params["structural"]["verbose"] = False
+  params["structural"]["verbose"] = False
 
   # params["system"]["rtol"] = 1.0e-2
   # params["system"]["atol"] = 1.0e-2
@@ -97,34 +97,7 @@ if __name__ == "__main__":
   #life = solver.solve_life()
   #print("Best estimate life: %f daily cycles" % life)
 
-  # ## Reduce problem to 2D-GPS at point of maximum temperature:
-  # solver.solve_heat_transfer()
-  # z_slice = {}
-  # for pi, panel in model.panels.items():
-  #   for ti, tube in panel.tubes.items():
-  #     headerprint(ti, '=')
-  #     tube.write_vtk("3D-thermalOnly-%s-%s" % (pi, ti))
-  #     _, _, z = tube.mesh
-  #     times = tube.times
-  #     T_max = np.max(tube.results['temperature'])
-  #     loc_max = np.where(tube.results['temperature'] == T_max)
-  #     z_max = z[loc_max[1:]][0] # ignore time axis
-  #     z_slice[ti] = z_max
-  #     valprint('max. temp', T_max-273.15, 'degC')
-  #     valprint('at height (z)', z_max, 'mm')
-  #     valprint(
-  #       'fluid temp',
-  #       tube.inner_bc.fluid_temperature(times[loc_max[0]], z_max)[0]-273.15,
-  #       'degC'
-  #     )
-  #     valprint(
-  #       'flux',
-  #       tube.outer_bc.flux(times[loc_max[0]], 0, z_max)[0],
-  #       'MW/m^2'
-  #     )
-  #     tube.make_2D(z_max) # full 3D temperature results are maintained
-
-  ## No need to perform full 3D thermal analysis every time:
+  ## Use axial points of maximum temperature from 3D thermal:
   z_slice = {
     'tube0': 6981.481481481482,
     'tube1': 6981.481481481482,
@@ -139,15 +112,16 @@ if __name__ == "__main__":
     'tube8': 4833.333333333334,
     'tube9': 9129.62962962963
   }
+  ## Reduce problem to 2D-GPS:
   for pi, panel in model.panels.items():
     for ti, tube in panel.tubes.items():
       tube.make_2D(z_slice[ti])
 
-  ## run thermal solver again to obtain 2D results:
+  ## 2D thermal and structural:
   solver.solve_heat_transfer()
   solver.solve_structural()
 
-  # Save the tube data for structural visualization
+  # Save the tube data for structural visualization and report tube lifetime
   headerprint(' LIFETIME ', '_')
   for pi, panel in model.panels.items():
     for ti, tube in panel.tubes.items():

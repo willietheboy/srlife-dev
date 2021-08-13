@@ -62,15 +62,29 @@ if __name__ == "__main__":
       structural_solver, deformation_mat, damage_mat,
       system_solver, damage_model, pset = params)
 
-  ## Solve only thermal to verify for first commit:
-  ret = solver.solve_heat_transfer()
-
-  # ## Actually solve for life
-  # life = solver.solve_life()
-  # print("Best estimate life: %f daily cycles" % life)
-
-  # Save the tube data out for additional visualization
+  ## Solve 3D and find height of maximum metal temperature:
+  solver.solve_heat_transfer()
+  z_slice = {}
   for pi, panel in model.panels.items():
     for ti, tube in panel.tubes.items():
-      #tube.write_vtk("tube2D-%s-%s" % (pi, ti))
-      tube.write_vtk("3D-%s-%s" % (pi, ti))
+      headerprint(ti, '=')
+      tube.write_vtk("3D-thermalOnly-%s-%s" % (pi, ti))
+      _, _, z = tube.mesh
+      times = tube.times
+      T_max = np.max(tube.results['temperature'])
+      loc_max = np.where(tube.results['temperature'] == T_max)
+      z_max = z[loc_max[1:]][0] # ignore time axis
+      z_slice[ti] = z_max
+      valprint('max. temp', T_max-273.15, 'degC')
+      valprint('at height (z)', z_max, 'mm')
+      valprint(
+        'fluid temp',
+        tube.inner_bc.fluid_temperature(times[loc_max[0]], z_max)[0]-273.15,
+        'degC'
+      )
+      valprint(
+        'flux',
+        tube.outer_bc.flux(times[loc_max[0]], 0, z_max)[0],
+        'MW/m^2'
+      )
+      tube.make_2D(z_max) # full 3D temperature results are maintained

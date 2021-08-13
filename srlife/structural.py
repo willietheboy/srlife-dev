@@ -303,8 +303,8 @@ class PythonTubeSolver(TubeSolver):
       mdiv = 0
 
     while cprog < tprog:
-      # sf = float(cprog + inc) / float(tprog)
-      sf = float(inc) / float(tprog)
+      sf = float(cprog + inc) / float(tprog)
+      # sf = float(inc) / float(tprog)
       dt = sf * (tube.times[i] - tube.times[i-1])
       if self.verbose:
         print('Stepping: %3.2f -> %3.2f' % (tube.times[i-1], tube.times[i-1]+dt))
@@ -313,13 +313,16 @@ class PythonTubeSolver(TubeSolver):
 
       try:
         if tube.ndim == 1:
-          solve_python_1d(state_last, t_last, p_last, state_next, t_next, p_next, dtop*sf,
+          solve_python_1d(state_last, t_last, p_last,
+                          state_next, t_next, p_next, dtop*sf,
               self.solver_options)
         elif tube.ndim == 2:
-          solve_python_2d(state_last, t_last, p_last, state_next, t_next, p_next, dtop*sf,
+          solve_python_2d(state_last, t_last, p_last,
+                          state_next, t_next, p_next, dtop*sf,
               self.solver_options)
         elif tube.ndim == 3:
-          solve_python_3d(state_last, t_last, p_last, state_next, t_next, p_next,
+          solve_python_3d(state_last, t_last, p_last,
+                          state_next, t_next, p_next,
               dtop*sf, self.solver_options)
         else:
           raise ValueError("Unknown dimension %i" % tube.ndim)
@@ -339,8 +342,9 @@ class PythonTubeSolver(TubeSolver):
       cprog += inc
 
     if mdiv >= self.max_divide:
-      print("t\tdt\tt_next")
-      print("%3.2f\t%3.2e\t%3.2f" % (tube.times[i-1], dt, t_next))
+      if self.verbose:
+        print("t\tdt\tt_next")
+        print("%3.2f\t%3.2e\t%3.2f" % (tube.times[i-1], dt, t_next))
       raise RuntimeError("Adaptive integration failed")
 
     return state_next

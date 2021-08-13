@@ -143,12 +143,12 @@ if __name__ == "__main__":
     # startup
     times = np.append(
       times,
-      period*i + np.linspace(0, 0.2, 11)[1:]
+      period*i + np.linspace(0, 0.2, 6)[1:]
     )
     # hold (linear)
     times = np.append(
       times,
-      period*i + np.linspace(0.2, 9.8, 25)[1:]
+      period*i + np.linspace(0.2, 9.8, 13)[1:]
     )
     # # hold (logarithmic relaxation)
     # times = np.append(
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     # shutdown
     times = np.append(
       times,
-      np.linspace(9.8, 10, 11)[1:]
+      np.linspace(9.8, 10, 6)[1:]
     )
 
   ## Tube circumferential flux component (cosine distribution):
