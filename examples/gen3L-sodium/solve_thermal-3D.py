@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
   # Setup some solver parameters
   params = solverparams.ParameterSet()
-  params["nthreads"] = 3
+  params["nthreads"] = 2
   params["progress_bars"] = True
 
   # params["thermal"]["rtol"] = 1.0e-6
@@ -102,27 +102,31 @@ if __name__ == "__main__":
 
   ## Solve 3D and find height of maximum metal temperature:
   solver.solve_heat_transfer()
-  z_slice = {}
+  z_Tmax = {}
+  T_max = {}
+  fluid = {}
+  flux = {}
   for pi, panel in model.panels.items():
     for ti, tube in panel.tubes.items():
       headerprint(ti, '=')
       tube.write_vtk("3D-thermalOnly-%s-%s" % (pi, ti))
       _, _, z = tube.mesh
       times = tube.times
-      T_max = np.max(tube.results['temperature'])
-      loc_max = np.where(tube.results['temperature'] == T_max)
-      z_max = z[loc_max[1:]][0] # ignore time axis
-      z_slice[ti] = z_max
-      valprint('max. temp', T_max-273.15, 'degC')
-      valprint('at height (z)', z_max, 'mm')
-      valprint(
-        'fluid temp',
-        tube.inner_bc.fluid_temperature(times[loc_max[0]], z_max)[0]-273.15,
-        'degC'
-      )
-      valprint(
-        'flux',
-        tube.outer_bc.flux(times[loc_max[0]], 0, z_max)[0],
-        'MW/m^2'
-      )
-  print(z_slice)
+      T_max[ti] = np.max(tube.results['temperature']) - 273.15
+      loc_max = np.where(tube.results['temperature'] == T_max[ti])
+      z_Tmax[ti] = z[loc_max[1:]][0] # ignore time axis
+      valprint('max. temp', T_max[ti], 'degC')
+      valprint('at height (z)', z_Tmax[ti], 'mm')
+      fluid[ti] = tube.inner_bc.fluid_temperature(
+        times[loc_max[0]], z_Tmax[ti]
+      )[0] - 273.15
+      valprint('fluid temp', fluid[ti], 'degC')
+      flux[ti] = tube.outer_bc.flux(times[loc_max[0]], 0, z_Tmax[ti])[0]
+      valprint('flux', flux[ti], 'MW/m^2')
+  ## Print in tex-table:
+  print('Tube & z (mm) & T_f (degC) & T_t (degC) & flux (MW/m^2)')
+  for pi, panel in model.panels.items():
+    for ti, tube in panel.tubes.items():
+      print('{} & {} & {} & {} & {}'.format(
+        ti.replace('tube',''), z_Tmax[ti], fluid[ti], T_max[ti], flux[ti]
+      ))

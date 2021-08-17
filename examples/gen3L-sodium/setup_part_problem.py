@@ -76,7 +76,7 @@ if __name__ == "__main__":
 
   ## Setup the base receiver model:
   period = 10 # Loading cycle period, hours
-  days = 10 # Number of cycles represented in the problem
+  days = 1 # Number of cycles represented in the problem
   panel_stiffness = "disconnect" # Panels are disconnected from one another
   model = receiver.Receiver(period, days, panel_stiffness)
 
@@ -144,14 +144,13 @@ if __name__ == "__main__":
   # ## Plot the flux map with location of peak metal temperatures
   # ## (from 3D thermal solve):
   # z_slice = np.array([
-  #   7200.0, 6200.0, 9400.0, 4100.0, 10900.0, 3600.0,
-  #   3600.0, 10900.0, 4600.0, 9400.0, 6200.0, 6700.0
+  #   7200.0, 6700.0, 8900.0, 4600.0, 10900.0, 4400.0,
+  #   3900.0, 10400.0, 4600.0, 9400.0, 6700.0, 8200.0
   # ])
   # z_temp = np.array([
-  #   1070.1639947035333, 1067.711747957147, 1029.7171840668434, 974.6850529929794,
-  #   1056.821335095206, 990.3671026657815, 990.168011354862, 1054.7784975628435,
-  #   974.4246107600875, 1011.0150844108971, 1047.9539353843054, 1051.24226364287,
-  # ])-273.15
+  #   832.2252, 829.0931, 794.5477, 752.0776, 826.2074, 777.4302,
+  #   777.0007, 827.0531, 755.4104, 773.8289, 798.4135, 804.2583
+  # ])
   # plot_pcolor_annotate(pa, pz*1e-3, fluid_temp-273.15, a_tubes, z_slice*1e-3, z_temp,
   #             r'\textsc{fluid temperature}, $T_\mathrm{f}$ (\si{\celsius})',
   #             r'\textsc{azimuth} (rad)',r'\textsc{height} (m)', 'fluid_temp_peaks'
@@ -239,6 +238,7 @@ if __name__ == "__main__":
   )
 
   ## Prepare individual tubes and add to respective panel:
+  n_tube = 1
   tubes = [None]*n_tubes
   for i in range(n_tubes):
     # Setup each tube in turn and assign it to the correct panel
@@ -258,6 +258,7 @@ if __name__ == "__main__":
     tubes[i].set_pressure_bc(receiver.PressureBC(times, pressure(times)))
 
   ## Setup the panels:
+  n_panel = 1
   tube_stiffness = "rigid"
   panels = [None]*n_panel
   for i in range(n_panel):

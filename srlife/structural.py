@@ -326,9 +326,9 @@ class PythonTubeSolver(TubeSolver):
               dtop*sf, self.solver_options)
         else:
           raise ValueError("Unknown dimension %i" % tube.ndim)
-      except RuntimeError as inst:
+      except RuntimeError as errmsg:
         if self.verbose:
-          print('Solve failed:', inst)
+          print('Solve failed:', errmsg)
           print('cprog\ttprog\tinc\tsf\tmdiv')
           print('%3.2f\t%3.2f\t%3.2f\t%3.2f\t%3.2f' % (cprog, tprog, inc, sf, mdiv))
         inc /= 2
@@ -345,7 +345,7 @@ class PythonTubeSolver(TubeSolver):
       if self.verbose:
         print("t\tdt\tt_next")
         print("%3.2f\t%3.2e\t%3.2f" % (tube.times[i-1], dt, t_next))
-      raise RuntimeError("Adaptive integration failed")
+      raise RuntimeError("Adaptive integration failed:", errmsg)
 
     return state_next
 

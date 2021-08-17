@@ -12,7 +12,7 @@ srlife.egg-info/
 dist/
 
 *.pvsm
-examples/gen3L-sodium/model.hdf5
+examples/gen3L-sodium/*.hdf5
 examples/gen3L-sodium/*.pdf
 examples/gen3L-sodium/*.png
 

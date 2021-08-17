@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
   # Load the receiver we previously saved
   model = receiver.Receiver.load("model.hdf5")
-  day = 365
+  day = model.days
 
   # Choose the material models
   fluid_mat = library.load_fluid("sodium", "base")
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
   # Setup some solver parameters
   params = solverparams.ParameterSet()
-  params["nthreads"] = 4
+  params["nthreads"] = 2
   params["progress_bars"] = True
 
   # params["thermal"]["rtol"] = 1.0e-6
@@ -73,7 +73,7 @@ if __name__ == "__main__":
   # params["structural"]["miter"] = 20
   # params["structural"]["force_divide"] = True
   # params["structural"]["max_divide"] = 4
-  # params["structural"]["verbose"] = False
+  # params["structural"]["verbose"] = True
 
   # params["system"]["rtol"] = 1.0e-2
   # params["system"]["atol"] = 1.0e-2
@@ -104,20 +104,7 @@ if __name__ == "__main__":
   #print("Best estimate life: %f daily cycles" % life)
 
   ## Use axial points of maximum temperature from 3D thermal:
-  z_slice = {
-    'tube0': 7200.0,
-    'tube1': 6700.0,
-    'tube2': 8900.0,
-    'tube3': 4600.0,
-    'tube4': 10900.0,
-    'tube5': 4400.0,
-    'tube6': 3900.0,
-    'tube7': 10400.0,
-    'tube8': 4600.0,
-    'tube9': 9400.0,
-    'tube10': 6700.0,
-    'tube11': 8200.0
-  }
+  z_slice = {'tube0': 7200.0, 'tube1': 6200.0, 'tube10': 6200.0, 'tube11': 6700.0, 'tube2': 9400.0, 'tube3': 4100.0, 'tube4': 10900.0, 'tube5': 3600.0, 'tube6': 3600.0, 'tube7': 10900.0, 'tube8': 4600.0, 'tube9': 9400.0}
 
   ## Reduce problem to 2D-GPS:
   for pi, panel in model.panels.items():
@@ -136,3 +123,6 @@ if __name__ == "__main__":
       tube.write_vtk("2D-%s-%s" % (pi, ti))
       life = damage_model.single_cycle(tube, damage_mat, model, day = day)
       valprint(ti, life, 'cycles')
+
+  ## Save complete model (including results) to HDF5 file:
+  model.save("2D-structural-model.hdf5")

@@ -197,7 +197,7 @@ def pressure_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
 
 def pressure_out_of_plane_R_disp(r, p, ri, ro, E, nu, dT, alpha):
   """
-  Assumption of cylinder closed at both ends
+  Assumption of cylinder closed at both ends (constant axial force)
   """
   A = ri**2 * ro**2 * -p / (ro**2 - ri**2)
   C = p * ri**2 / (ro**2 - ri**2)
@@ -207,6 +207,7 @@ def pressure_out_of_plane_R_disp(r, p, ri, ro, E, nu, dT, alpha):
 def thermal_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
   """
   Constants of integration (stress) assume a linear temperature gradient
+  and constraint of plane strain (axial strain = 0)
   """
   C_1 = -alpha*dT*(nu + 1)*(2*nu - 1)*\
     (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
@@ -221,12 +222,12 @@ def thermal_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
 def thermal_gen_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
   """
   Constants of integration (stress) assume a linear temperature gradient
+  and a constant axial stress (C_3) required to annul axial force
   """
   C_1 = -alpha*dT*(nu + 1)*(2*nu - 1)*\
     (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
   C_2 = alpha*dT*ri**2*(nu + 1)*\
     (-ri**3/6 + ri*ro**2/2 - ro**3/3)/((nu - 1)*(ri - ro)**2*(ri + ro))
-  ## the constant axial stress required to annual (thermal) axial force:
   C_3 = -E*alpha*dT*(ri + 2*ro)/(3*ri + 3*ro)
   u = C_1*r + C_2/r + C_3*nu*r/E + alpha*(nu + 1)*\
     (-dT*r**3/(3*ri - 3*ro) + dT*r**2*ri/(2*ri - 2*ro) + \
@@ -236,6 +237,7 @@ def thermal_gen_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
 def total_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
   """
   Constants of integration (stress) assume a linear temperature gradient
+  and constraint of plane strain
   """
   A = ri**2 * ro**2 * -p / (ro**2 - ri**2)
   C = p * ri**2 / (ro**2 - ri**2)
@@ -252,7 +254,9 @@ def total_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
 
 def total_gen_plane_strain_R_disp(r, p, ri, ro, E, nu, dT, alpha):
   """
-  Constants of integration (stress) assume a linear temperature gradient
+  Constants of integration (stress) assume a linear temperature gradient,
+  a constant out of plane pressure stress and the force required to annul
+  thermally induced axial stress
   """
   A = ri**2 * ro**2 * -p / (ro**2 - ri**2)
   C = p * ri**2 / (ro**2 - ri**2)
@@ -295,7 +299,7 @@ if __name__ == "__main__":
              no_out_of_plane_Z_force,
              p = 100, ri = 8, ro = 10.0,
              spring = False),
-    TestCase("Pressure, incl. out of plane",
+    TestCase("Pressure, sprung",
              lambda r, ri, ro, dT: 0.0,
              pressure_out_of_plane_R_disp,
              pressure_out_of_plane_Z_force,
@@ -307,19 +311,19 @@ if __name__ == "__main__":
              no_out_of_plane_Z_force,
              p = 1e-9, ri = 8, ro = 10.0, dT = 100,
              spring = False),
-    TestCase("Thermal, gen. plane strain",
+    TestCase("Thermal, sprung",
              lambda r, ri, ro, dT: dT * (r - ri) / (ro - ri),
              thermal_gen_plane_strain_R_disp,
              no_out_of_plane_Z_force,
              p = 1e-9, ri = 8, ro = 10.0, dT = 100,
              spring = True),
-    TestCase("Pressure + Thermal, plane strain",
+    TestCase("Pressure + thermal, plane strain",
              lambda r, ri, ro, dT: dT * (r - ri) / (ro - ri),
              total_plane_strain_R_disp,
              no_out_of_plane_Z_force,
              p = 100, ri = 8, ro = 10.0, dT = 100,
              spring = False),
-    TestCase("Pressure + Thermal, gen. plane strain",
+    TestCase("Pressure + thermal, sprung",
              lambda r, ri, ro, dT: dT * (r - ri) / (ro - ri),
              total_gen_plane_strain_R_disp,
              pressure_out_of_plane_Z_force,
@@ -344,6 +348,6 @@ if __name__ == "__main__":
       print("Max relative error: %e" % r)
       print("")
       ## graphical:
-      case.plot_comparison(tube)
+      #case.plot_comparison(tube)
       ## print to PDF:
-      # case.plot_comparison_pdf(tube)
+      case.plot_comparison_pdf(tube)
