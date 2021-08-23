@@ -345,7 +345,7 @@ class PythonTubeSolver(TubeSolver):
       if self.verbose:
         print("t\tdt\tt_next")
         print("%3.2f\t%3.2e\t%3.2f" % (tube.times[i-1], dt, t_next))
-      raise RuntimeError("Adaptive integration failed:", errmsg)
+      raise RuntimeError("Adaptive integration failed")
 
     return state_next
 

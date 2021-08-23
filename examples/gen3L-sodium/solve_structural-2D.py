@@ -27,6 +27,7 @@ def valeprint(string, value, unit='-'):
 def vmStress(tube):
   """
   Calculate von Mises effective stress from tube quadrature results
+  ---! fixes misplaced bracket in original srlife code !---
   """
   vm = np.sqrt((
     (tube.quadrature_results['stress_xx'] -
@@ -35,10 +36,29 @@ def vmStress(tube):
      tube.quadrature_results['stress_zz'])**2.0 +
     (tube.quadrature_results['stress_zz'] -
      tube.quadrature_results['stress_xx'])**2.0 +
-    3.0 * (tube.quadrature_results['stress_xy']**2.0 +
+    6.0 * (tube.quadrature_results['stress_xy']**2.0 +
            tube.quadrature_results['stress_yz']**2.0 +
-           tube.quadrature_results['stress_xz']**2.0))/2.0)
+           tube.quadrature_results['stress_xz']**2.0))/2.0
+  )
   return vm
+
+def effStrain(tube):
+  """
+  Calculated effective strain (as required e.g. in design guidelines)
+  """
+  ee = np.sqrt(
+    2.0/3.0 * (
+      tube.quadrature_results['mechanical_strain_xx']**2 +
+      tube.quadrature_results['mechanical_strain_yy']**2 +
+      tube.quadrature_results['mechanical_strain_zz']**2
+    ) +
+    4.0/3.0 * (
+      tube.quadrature_results['mechanical_strain_xy']**2 +
+      tube.quadrature_results['mechanical_strain_xy']**2 +
+      tube.quadrature_results['mechanical_strain_yz']**2
+    )
+  )
+  return ee
 
 if __name__ == "__main__":
 
@@ -52,16 +72,17 @@ if __name__ == "__main__":
 
   # Choose the material models
   fluid_mat = library.load_fluid("sodium", "base")
+  tmode = "base" # 'base': transient thermal, 'steady': quasi-steady-state
   thermal_mat, deformation_mat, damage_mat = library.load_material(
     "740H",
-    "base", # thermal
+    tmode,
     "elastic_creep", # deformation (elastic_model|elastic_creep|base)
     "base" # damage
   )
 
   # Setup some solver parameters
   params = solverparams.ParameterSet()
-  params["nthreads"] = 2
+  params["nthreads"] = 1
   params["progress_bars"] = True
 
   # params["thermal"]["rtol"] = 1.0e-6
@@ -84,9 +105,6 @@ if __name__ == "__main__":
   thermal_solver = thermal.FiniteDifferenceImplicitThermalSolver(
       params["thermal"])
 
-  # ## Test only (single tube) thermal solutions:
-  # thermal_solver.solver.solve(tube, thermal_mat, fluid_mat)
-
   # Define the structural solver to use in solving the individual tube problems
   structural_solver = structural.PythonTubeSolver(params["structural"])
   # Define the system solver to use in solving the coupled structural system
@@ -99,12 +117,12 @@ if __name__ == "__main__":
       structural_solver, deformation_mat, damage_mat,
       system_solver, damage_model, pset = params)
 
-  ## Solve thermal, structural, then lifetime all in one go:
-  #life = solver.solve_life()
-  #print("Best estimate life: %f daily cycles" % life)
-
   ## Use axial points of maximum temperature from 3D thermal:
-  z_slice = {'tube0': 7200.0, 'tube1': 6200.0, 'tube10': 6200.0, 'tube11': 6700.0, 'tube2': 9400.0, 'tube3': 4100.0, 'tube4': 10900.0, 'tube5': 3600.0, 'tube6': 3600.0, 'tube7': 10900.0, 'tube8': 4600.0, 'tube9': 9400.0}
+  z_slice = {
+    'tube0': 7200.0, 'tube1': 6200.0, 'tube2': 9400.0, 'tube3': 4100.0,
+    'tube4': 10900.0, 'tube5': 3600.0, 'tube6': 3600.0, 'tube7': 10900.0,
+    'tube8': 4600.0, 'tube9': 9400.0, 'tube10': 6200.0, 'tube11': 6700.0
+  }
 
   ## Reduce problem to 2D-GPS:
   for pi, panel in model.panels.items():
@@ -116,13 +134,14 @@ if __name__ == "__main__":
   solver.solve_structural()
 
   # Save the tube data for structural visualization and report tube lifetime
-  headerprint(' LIFETIME with cycle: {}'.format(day), '_')
+  headerprint(' LIFETIME with cycle: {} '.format(day), '_')
   for pi, panel in model.panels.items():
     for ti, tube in panel.tubes.items():
       tube.add_quadrature_results('vonmises', vmStress(tube))
-      tube.write_vtk("2D-%s-%s" % (pi, ti))
+      tube.add_quadrature_results('meeq', effStrain(tube))
+      tube.write_vtk("2D-%s-%s-%s" % (tmode, pi, ti))
       life = damage_model.single_cycle(tube, damage_mat, model, day = day)
       valprint(ti, life, 'cycles')
 
   ## Save complete model (including results) to HDF5 file:
-  model.save("2D-structural-model.hdf5")
+  model.save("2D-%s-results-model.hdf5" % tmode)

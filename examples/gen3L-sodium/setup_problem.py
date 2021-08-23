@@ -76,7 +76,7 @@ if __name__ == "__main__":
 
   ## Setup the base receiver model:
   period = 10 # Loading cycle period, hours
-  days = 10 # Number of cycles represented in the problem
+  days = 30 # Number of cycles represented in the problem
   panel_stiffness = "disconnect" # Panels are disconnected from one another
   model = receiver.Receiver(period, days, panel_stiffness)
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
   ## Tube discretization:
   nr = 7
-  nt = 121
+  nt = 61
   nz = 146
 
   ## Solar Central Receiver (scr) geometry:
