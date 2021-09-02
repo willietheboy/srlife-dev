@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
   ## Setup the base receiver model:
   period = 10 # Loading cycle period, hours
-  days = 182 # Number of cycles represented in the problem
+  days = 1 # Number of cycles represented in the problem
   panel_stiffness = "disconnect" # Panels are disconnected from one another
   model = receiver.Receiver(period, days, panel_stiffness)
 

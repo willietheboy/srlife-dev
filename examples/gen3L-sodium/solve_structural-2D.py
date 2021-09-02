@@ -76,7 +76,7 @@ if __name__ == "__main__":
   thermal_mat, deformation_mat, damage_mat = library.load_material(
     "740H",
     tmode,
-    "elastic_creep", # deformation (elastic_model|elastic_creep|base)
+    "elastic_model", # deformation (elastic_model|elastic_creep|base)
     "base" # damage
   )
 
